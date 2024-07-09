@@ -1,0 +1,43 @@
+cmake_minimum_required(VERSION 3.10)
+project(XFeatTensorRT)
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Find CUDA
+find_package(CUDA REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(Torch REQUIRED PATHS ${PROJECT_SOURCE_DIR}/libtorch)
+message(STATUS "Found Torch include is ${TORCH_INCLUDE_DIRS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
+# TensorRT paths 
+set(TENSORRT_ROOT ~/Downloads/TensorRT-8.6.1.6)
+set(TENSORRT_INCLUDE_DIR ${TENSORRT_ROOT}/include)
+set(TENSORRT_LIBRARY_DIR ${TENSORRT_ROOT}/lib)
+
+# Include directories
+include_directories(include/ ${CUDA_INCLUDE_DIRS} ${TENSORRT_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${TORCH_INCLUDE_DIRS})
+
+# Create XFeat library
+add_library(xfeat_lib SHARED
+    src/xfeat.cpp
+    include/xfeat.h    
+)
+
+# Link directories
+link_directories(${CUDA_LIBRARY_DIRS} ${TENSORRT_LIBRARY_DIR})
+
+# List of source files
+set(SOURCES src/xfeattensorrt.cpp)
+
+# Add executable
+add_executable(TensorRTExample ${SOURCES})
+
+add_executable(xfeatlib_example src/xample.cpp)
+
+# Link libraries
+target_link_libraries(TensorRTExample ${CUDA_LIBRARIES} ${OpenCV_LIBS} nvinfer nvonnxparser nvinfer_plugin)
+target_link_libraries(xfeat_lib ${CUDA_LIBRARIES} ${OpenCV_LIBS} ${TORCH_LIBRARIES} nvinfer nvonnxparser nvinfer_plugin)
+target_link_libraries(xfeatlib_example xfeat_lib)
