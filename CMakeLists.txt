@@ -5,9 +5,18 @@ project(XFeatTensorRT)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Suppress deprecated function warnings for GCC and Clang
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-Wno-deprecated-declarations)
+endif()
+
 # Find CUDA
 find_package(CUDA REQUIRED)
+
+#Find OpenCV
 find_package(OpenCV REQUIRED)
+
+#Find LibTorch
 find_package(Torch REQUIRED PATHS ${PROJECT_SOURCE_DIR}/libtorch)
 message(STATUS "Found Torch include is ${TORCH_INCLUDE_DIRS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
@@ -41,4 +50,4 @@ add_executable(xfeatlib_example src/xample.cpp)
 # Link libraries
 target_link_libraries(TensorRTExample ${CUDA_LIBRARIES} ${OpenCV_LIBS} nvinfer nvonnxparser nvinfer_plugin)
 target_link_libraries(xfeat_lib ${CUDA_LIBRARIES} ${OpenCV_LIBS} ${TORCH_LIBRARIES} nvinfer nvonnxparser nvinfer_plugin)
-target_link_libraries(xfeatlib_example xfeat_lib)
+target_link_libraries(xfeatlib_example xfeat_lib ${TORCH_LIBRARIES})

@@ -33,7 +33,6 @@ struct DestroyObjects {
             destroy(ptr);
         }
     }
-
 private:
     // Enable if T has a destroy() member function (TensorRT objects). SFINAE (Substitution Failure Is Not An Error) 
     template <typename T>
@@ -60,7 +59,7 @@ class XFeat
     * @param descriptors Descriptors of the keypoints.
     * @param scores Confidence scores of the keypoints.
    */
-    void detectAndCompute(const cv::Mat& img, cv::Mat& keypoints, cv::Mat& descriptors, cv::Mat& scores);
+    void detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch::Tensor& descriptors, torch::Tensor& scores);
 
     private:
 
@@ -130,6 +129,10 @@ class XFeat
 
     //Torch device (Must be CUDA)
     torch::Device dev;
+
+    //Class objects to interpolate the Tensors
+    InterpolateSparse2D _nearest;
+	InterpolateSparse2D bilinear;
 
 };
 

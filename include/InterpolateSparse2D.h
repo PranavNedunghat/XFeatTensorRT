@@ -9,16 +9,16 @@ namespace F = torch::nn::functional;
 class InterpolateSparse2D : public torch::nn::Module 
 {
     public:
-    InterpolateSparse2D(const std::string& mode = "bilinear", bool align_corners = false):mode_(mode), align_corners_(align_corners)
+    InterpolateSparse2D(const std::string& mode = "bilinear", bool align_corners = false)
     {
         if(mode == "nearest")
         {
-            options_ = F::GridSampleFuncOptions().mode(torch::kNearest).padding_mode(torch::kZeros).align_corners(align_corners_);
+            options_ = F::GridSampleFuncOptions().mode(torch::kNearest).padding_mode(torch::kZeros).align_corners(align_corners);
         }
 
         else
         {
-            options_ = F::GridSampleFuncOptions().mode(torch::kBilinear).padding_mode(torch::kZeros).align_corners(align_corners_);
+            options_ = F::GridSampleFuncOptions().mode(torch::kBilinear).padding_mode(torch::kZeros).align_corners(align_corners);
         }
     }
 
@@ -43,8 +43,6 @@ class InterpolateSparse2D : public torch::nn::Module
 
     private:
     F::GridSampleFuncOptions options_;
-    std::string mode_;
-    bool align_corners_;
 };
 
 #endif //INTER_SPARSE_2D_H
