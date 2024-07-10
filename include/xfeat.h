@@ -10,6 +10,7 @@
 #include <vector>
 #include <memory>
 #include <type_traits>
+#include "InterpolateSparse2D.h"
 
 
 using namespace nvinfer1;
@@ -64,11 +65,10 @@ class XFeat
     private:
 
     /**
-    * @brief Function to preprocess the input images before feeding it into the engine. Returns the preprocessed image.
+    * @brief Function to preprocess the input images before feeding it into the engine. Returns the preprocessed image as a Tensor.
     * @param img The input image to the engine.
-    * @param use_fp16 If true, the input image will be converted to CV_16F.
    */
-    cv::Mat preprocessImages(const cv::Mat& img, bool use_fp16);
+    torch::Tensor preprocessImages(const cv::Mat& img);
 
     /**
     * @brief Function to read the .engine file and load it into a buffer.
@@ -83,10 +83,25 @@ class XFeat
     void loadEngine(const std::string& engineFilePath);
 
     /**
-    * @brief Function to create buffers on the GPU for input and outputs. Returns a pointer to the newly allocated buffer
-    * @param size Size to be allocated to the buffer.
+    * @brief Helper function to convert an input image into a Tensor and store it on the GPU.
+    * @param img Input image.
    */
-    std::unique_ptr<void, DestroyObjects> createDeviceBuffer(size_t size);
+    inline torch::Tensor MatToTensor(const cv::Mat& img);
+
+    /**
+    * @brief Helper function to perform non max suppression on a Tensor.
+    * @param x Tensor containing the keypoints.
+    * @param threshold Only consider keypoints above this threshold.
+    * @param kernel_size Kernel size for the MaxPool2d operation.
+   */
+    torch::Tensor NMS(const torch::Tensor& x, float threshold = 0.05, int kernel_size = 5);
+
+    /**
+    * @brief Helper function to get the HeatMap from the keypoints Tensor.
+    * @param kpts Tensor containing the keypoints.
+    * @param softmax_temp Temperature to apply to the kpts in the SoftMax operation.
+   */
+    torch::Tensor get_kpts_heatmap(const torch::Tensor& kpts, float softmax_temp = 1.0);
 
 
     //TensorRT Engine variables

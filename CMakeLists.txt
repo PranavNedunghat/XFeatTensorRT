@@ -23,7 +23,8 @@ include_directories(include/ ${CUDA_INCLUDE_DIRS} ${TENSORRT_INCLUDE_DIR} ${Open
 # Create XFeat library
 add_library(xfeat_lib SHARED
     src/xfeat.cpp
-    include/xfeat.h    
+    include/xfeat.h 
+    include/InterpolateSparse2D.h   
 )
 
 # Link directories
