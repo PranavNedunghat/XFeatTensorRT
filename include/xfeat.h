@@ -61,6 +61,15 @@ class XFeat
    */
     void detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch::Tensor& descriptors, torch::Tensor& scores);
 
+    /**
+    * @brief Helper function to match the keypoints from two images based on descriptors cosine similarity.
+    * @param feats1 Descriptors from image 1.
+    * @param feats2 Descriptors from image 2.
+    * @param matches Indices of matched points as a vector of cv::DMatches.
+    * @param min_cossim Ratio of similarity between the cosines.
+   */
+    void match(const torch::Tensor& feats1, const torch::Tensor& feats2, std::vector<cv::DMatch>& matches, double min_cossim = 0.82);
+
     private:
 
     /**

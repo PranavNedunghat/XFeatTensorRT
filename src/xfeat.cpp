@@ -48,40 +48,31 @@ void XFeat::detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch
 
     // Preprocess input image and convert to Tensor on GPU
     torch::Tensor input_Data = preprocessImages(img);
-    std::cout<<"Created image tensor of size:"<<std::endl;
-    std::cout<<input_Data.sizes()<<std::endl;
 
     // Variables to store output from TensorRT engine
-    std::cout<<"Creating empty output variables"<<std::endl;
     featsData = torch::empty({batchSize,64,outputH,outputW}, torch::device(dev).dtype(torch::kFloat32));
     keypointsData = torch::empty({batchSize, 65, outputH, outputW}, torch::device(dev).dtype(torch::kFloat32));
     heatmapData = torch::empty({batchSize, 1, outputH, outputW}, torch::device(dev).dtype(torch::kFloat32));
 
     // Create buffer to store input and outputs of TensorRT engine
-    std::cout<<"Creating buffers.."<<std::endl;
     void* buffers[4]; 
     buffers[inputIndex] = input_Data.data_ptr();
     buffers[featsIndex] = featsData.data_ptr();
     buffers[keypointsIndex] = keypointsData.data_ptr();
     buffers[heatmapIndex] = heatmapData.data_ptr();
 
-    std::cout<<"Running inference..."<<std::endl;
     // Run inference on TensorRT engine
     context->executeV2(buffers);
-    std::cout<<"Inference successful.. Running postprocessing stuff"<<std::endl;
 
     featsData = torch::nn::functional::normalize(featsData, torch::nn::functional::NormalizeFuncOptions().dim(1));
     keypointsData = get_kpts_heatmap(keypointsData);
     auto mkpts = NMS(keypointsData);
-
-    std::cout<<"NMS Done..."<<std::endl;
 
     auto scores_ = (_nearest.forward(keypointsData, mkpts, _H, _W) * bilinear.forward(heatmapData, mkpts, _H, _W)).squeeze(-1);
 
     // Masking
     auto mask_ = torch::all(mkpts == 0, -1);
     scores_.masked_fill_(mask_,-1);
-    std::cout<<"Masking done..."<<std::endl;
 
     // Select top k features
     auto idxs = std::get<1>(torch::sort(-scores_));
@@ -90,37 +81,29 @@ void XFeat::detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch
     auto mkpts_y = torch::gather(mkpts.select(-1,1),-1, idxs);
     mkpts = torch::cat(std::vector<torch::Tensor>{mkpts_x.unsqueeze(-1), mkpts_y.unsqueeze(-1)}, -1);
     scores_ = torch::gather(scores_, -1, idxs);
-    std::cout<<"Selected top k feats..."<<std::endl;
 
     // Interpolate descriptors
     auto feats = bilinear.forward(featsData, mkpts, _H, _W);
-    std::cout<<"Interpolated descriptors..."<<std::endl;
 
     // L2-Normalize
     feats = torch::nn::functional::normalize(feats, torch::nn::functional::NormalizeFuncOptions().dim(-1));
-    std::cout<<"Normalized feats..."<<std::endl;
 
     // Correct keypoint scale
     auto scale = torch::tensor({rw, rh}, torch::kFloat32).to(dev).view({1, 1, -1});
     mkpts = mkpts * scale;
-    std::cout<<"Corrected scale..."<<std::endl;
 
     // Validity mask
     auto valid = (scores_ > 0);
-    std::cout<<"Created Mask..."<<std::endl;
 
     // Use the valid mask to filter the keypoints, scores, and descriptors
     auto keypoints_valid = mkpts.index({valid});
     auto scores_valid = scores_.index({valid});
     auto descriptors_valid = feats.index({valid});
-    std::cout<<"Indexed valid mask indices..."<<std::endl;
 
     // Transfer the valid points to the CPU
     keypoints = keypoints_valid.cpu();
     scores = scores_valid.cpu();
     descriptors = descriptors_valid.cpu();
-
-    std::cout<<"All operations successful!"<<std::endl;
 }
 
 torch::Tensor XFeat::preprocessImages(const cv::Mat& img)
@@ -203,12 +186,9 @@ torch::Tensor XFeat::NMS(const torch::Tensor& x, float threshold, int kernel_siz
     int pad = kernel_size / 2;
 
     //Perform MaxPool2d
-    std::cout<<"Before MaxPooling"<<std::endl;
     auto local_max = torch::max_pool2d(x,kernel_size, 1, pad);
-    std::cout<<"Done MaxPooling. doing Pos"<<std::endl;
     // Compare x with local_max and threshold
     auto pos = (x == local_max) & (x > threshold);
-    std::cout<<"Done Pos"<<std::endl;
     // Get the positions of the positive elements
     std::vector<torch::Tensor> pos_batched;
     pos_batched.reserve(B);
@@ -216,23 +196,18 @@ torch::Tensor XFeat::NMS(const torch::Tensor& x, float threshold, int kernel_siz
     {
         pos_batched.emplace_back(pos[i].nonzero().slice(/*dim=*/1, /*start=*/1, /*end=*/torch::indexing::None).flip(-1));
     }
-    std::cout<<"Done Pos batched"<<std::endl;
     // Find the maximum number of keypoints to pad the tensor
     int pad_val = 0;
     for(const auto& tensor : pos_batched)
     {
         pad_val = std::max(pad_val, static_cast<int>(tensor.size(0)));
     }
-    std::cout<<"Done Pad val: size:"<<pad_val<<std::endl;
     //Pad keypoints and build (B, N, 2) Tensor
     auto pos_tensor = torch::zeros({B, pad_val, 2}, options);
-    std::cout<<"pos tensor size"<<pos_tensor.sizes()<<std::endl;
-    std::cout<<"pos batched size"<<pos_batched[0].sizes()<<std::endl;
     for(int b = 0; b < B; b++)
     {
         pos_tensor[b].narrow(0, 0, pos_batched[b].size(0)) = pos_batched[b];
     }
-    std::cout<<"Done Pos Tensor"<<std::endl;
     return pos_tensor;
 }
 
@@ -245,10 +220,49 @@ torch::Tensor XFeat::get_kpts_heatmap(const torch::Tensor& kpts, float softmax_t
     int B = scores.size(0);
     int H = scores.size(2);
     int W = scores.size(3);
-
+  
     //Perform reshaping and permutation
     auto heatmap = scores.permute({0,2,3,1}).reshape({B, H, W, 8, 8});
     heatmap = heatmap.permute({0,1,3,2,4}).reshape({B, 1, H*8, W*8});
 
     return heatmap;
+}
+
+void XFeat::match(const torch::Tensor& feats1, const torch::Tensor& feats2, std::vector<cv::DMatch>& matches, double min_cossim) 
+{
+    auto cossim = torch::matmul(feats1, feats2.t());
+    auto cossim_t = torch::matmul(feats2, feats1.t());
+
+    auto match12 = std::get<1>(cossim.max(1));
+    auto match21 = std::get<1>(cossim_t.max(1));
+
+    auto idx0 = torch::arange(match12.size(0), cossim.options().device(match12.device()));
+    auto mutual = match21.index({match12}) == idx0;
+
+    if (min_cossim > 0) {
+        cossim = std::get<0>(cossim.max(1));
+        auto good = cossim > min_cossim;
+        idx0 = idx0.index({mutual & good});
+        auto idx1 = match12.index({mutual & good});
+        for (int i = 0; i < idx0.size(0); ++i) 
+        {
+            int queryIdx = idx0[i].item<int>();
+            int trainIdx = idx1[i].item<int>();
+            float distance = cossim[queryIdx].item<float>();
+            matches.emplace_back(queryIdx, trainIdx, distance);
+        }
+    } 
+    else 
+    {
+        idx0 = idx0.index({mutual});
+        auto idx1 = match12.index({mutual});
+
+        for (int i = 0; i < idx0.size(0); ++i) 
+        {
+            int queryIdx = idx0[i].item<int>();
+            int trainIdx = idx1[i].item<int>();
+            float distance = cossim[queryIdx].item<float>();
+            matches.emplace_back(queryIdx, trainIdx, distance);
+        }
+    }
 }
