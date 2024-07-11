@@ -1,0 +1,13 @@
+# Main params for XFeat
+max_keypoints: 4096
+image_width: 640
+image_height: 480
+engine_file: "xfeat.engine"
+
+#Non-Max Suppression params
+threshold: 0.05
+kernel_size: 5
+
+#SoftMax params
+softmaxTemp: 1.0
+

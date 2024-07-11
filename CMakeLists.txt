@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(XFeatTensorRT)
 
 # Set C++ standard
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Suppress deprecated function warnings for GCC and Clang
@@ -15,6 +15,9 @@ find_package(CUDA REQUIRED)
 
 #Find OpenCV
 find_package(OpenCV REQUIRED)
+
+#Find YAML-cpp
+find_package(yaml-cpp REQUIRED)
 
 #Find LibTorch
 find_package(Torch REQUIRED PATHS ${PROJECT_SOURCE_DIR}/libtorch)
@@ -39,15 +42,9 @@ add_library(xfeat_lib SHARED
 # Link directories
 link_directories(${CUDA_LIBRARY_DIRS} ${TENSORRT_LIBRARY_DIR})
 
-# List of source files
-set(SOURCES src/xfeattensorrt.cpp)
-
 # Add executable
-add_executable(TensorRTExample ${SOURCES})
-
-add_executable(xfeatlib_example src/xample.cpp)
+add_executable(xample src/xample.cpp)
 
 # Link libraries
-target_link_libraries(TensorRTExample ${CUDA_LIBRARIES} ${OpenCV_LIBS} nvinfer nvonnxparser nvinfer_plugin)
-target_link_libraries(xfeat_lib ${CUDA_LIBRARIES} ${OpenCV_LIBS} ${TORCH_LIBRARIES} nvinfer nvonnxparser nvinfer_plugin)
-target_link_libraries(xfeatlib_example xfeat_lib ${TORCH_LIBRARIES})
+target_link_libraries(xfeat_lib ${CUDA_LIBRARIES} ${OpenCV_LIBS} ${TORCH_LIBRARIES} nvinfer nvonnxparser nvinfer_plugin yaml-cpp)
+target_link_libraries(xample xfeat_lib ${TORCH_LIBRARIES})

@@ -4,14 +4,29 @@
 #include <ctime>
 #include <algorithm>
 #include <opencv2/opencv.hpp>
-#include <cxxopts.hpp>
 #include "xfeat.h"
+#include <yaml-cpp/yaml.h>
 
 using namespace nvinfer1;
 
-XFeat::XFeat(const std::string config):dev(torch::kCUDA)
+XFeat::XFeat(const std::string config_path, const std::string engine_path):dev(torch::kCUDA)
 {
-    std::string engineFilePath = "/home/pranav/xfeat_ws/XFeatCPPTensorRT/weights/xfeat.engine";
+    YAML::Node config = YAML::LoadFile(config_path);
+
+    // XFeat params
+    std::string engineFilePath = engine_path + config["engine_file"].as<std::string>();
+    inputH = config["image_height"].as<int>();
+    inputW = config["image_width"].as<int>();
+    top_k = config["max_keypoints"].as<int>();
+
+    // NMS params
+    threshold = config["threshold"].as<float>();
+    kernel_size = config["kernel_size"].as<int>();
+
+    //Softmax params
+    softmaxTemp = config["softmaxTemp"].as<float>();
+
+    // Load and initialize the engine
     loadEngine(engineFilePath);
     context = std::unique_ptr<IExecutionContext, DestroyObjects> (engine->createExecutionContext());
     if (!context) {
@@ -20,31 +35,32 @@ XFeat::XFeat(const std::string config):dev(torch::kCUDA)
 
     batchSize = 1;
     inputC = 1;
-    inputH = 480;
-    inputW = 640;
 
+    // Image height and width after image preprocessing to make it compatible with the TensorRT engine.
     _H = (inputH/32)*32;
     _W = (inputW/32)*32;
+
+    //Size of output of TensorRT engine
     outputH = _H/8;
     outputW = _W/8;
 
+    //Scale correction factor
     rh = static_cast<float>(inputH) / static_cast<float>(_H);
     rw = static_cast<float>(inputW) / static_cast<float>(_W);
 
+    //Get engine bindings
     inputIndex = engine->getBindingIndex("image");
     featsIndex = engine->getBindingIndex("feats");
     keypointsIndex = engine->getBindingIndex("keypoints");
     heatmapIndex = engine->getBindingIndex("heatmap");
 
+    //Sparse interpolator for post-processing outputs
     _nearest = InterpolateSparse2D("nearest");
 	bilinear = InterpolateSparse2D("bilinear");
-
 }
 
 void XFeat::detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch::Tensor& descriptors, torch::Tensor& scores)
 {
-    // Select top - k features
-    int top_k = 4096;
 
     // Preprocess input image and convert to Tensor on GPU
     torch::Tensor input_Data = preprocessImages(img);
@@ -65,8 +81,8 @@ void XFeat::detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch
     context->executeV2(buffers);
 
     featsData = torch::nn::functional::normalize(featsData, torch::nn::functional::NormalizeFuncOptions().dim(1));
-    keypointsData = get_kpts_heatmap(keypointsData);
-    auto mkpts = NMS(keypointsData);
+    keypointsData = get_kpts_heatmap(keypointsData,softmaxTemp);
+    auto mkpts = NMS(keypointsData,threshold, kernel_size);
 
     auto scores_ = (_nearest.forward(keypointsData, mkpts, _H, _W) * bilinear.forward(heatmapData, mkpts, _H, _W)).squeeze(-1);
 

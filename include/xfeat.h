@@ -16,6 +16,9 @@
 using namespace nvinfer1;
 
 class Logger : public ILogger {
+    /**
+    * @brief TensorRT engine logger.
+    */
     void log(Severity severity, const char* msg) noexcept override {
         if(severity <= Severity::kWARNING){
             std::cout<<msg<<std::endl;
@@ -24,9 +27,9 @@ class Logger : public ILogger {
 };
 
 struct DestroyObjects {
-     /**
-    * @brief Custom struct to deal with freeing up the memory for Tensor objects, CUDA and CPU objects.
-   */
+    /**
+    * @brief Custom struct to deal with freeing up the memory for Tensor objects, and CUDA objects.
+    */
     template <typename T>
     void operator()(T* ptr) const {
         if (ptr) {
@@ -49,8 +52,17 @@ private:
 
 class XFeat
 {
+    /**
+    * @brief This class is the C++ implementation of XFeat:Accelerated Features deep learning model optimized using TensorRT for super fast keypoint detection.
+    * CVPR 2024 Paper link: https://arxiv.org/abs/2404.19174
+    */
     public:
-    XFeat(const std::string config_file);
+    /**
+    * @brief Constructor of the XFeat class.
+    * @param config_path Path to the config file.
+    * @param engine_path Path to the weights folder containing the .engine file.
+   */
+    XFeat(const std::string config_path, const std::string engine_path);
 
     /**
     * @brief Function to perform inferencing on the TensorRT engine. It preprocesses the data, performs inference, postprocesses the outputs and returns them.
@@ -125,6 +137,9 @@ class XFeat
 
     //Binding index for all the data
     int inputIndex, featsIndex, keypointsIndex, heatmapIndex;
+    
+    // Select top - k features
+    int top_k;
 
     //Output data variables params
     int outputH, outputW,_H,_W;
@@ -143,6 +158,12 @@ class XFeat
     InterpolateSparse2D _nearest;
 	InterpolateSparse2D bilinear;
 
+    //Non-Max Suppression params
+    float threshold;
+    int kernel_size;
+
+    //SoftMax temperature
+    float softmaxTemp;
 };
 
 #endif //XFEAT_H

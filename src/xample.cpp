@@ -3,11 +3,22 @@
 #include <torch/torch.h>
 #include <iostream>
 #include "utils.h"
+#include <filesystem>
 
-int main()
+int main(int argc, char* argv[])
 {
-    std::string config_path = "config_file_path";
-    XFeat xfeat(config_path);
+    // Parse arguments
+    if (argc != 3) {
+    std::cerr << "Usage: " << argv[0] << " <config.yaml> <engine_file>" << std::endl;
+    return 1;
+    }
+
+    // Get the paths from the command line arguments
+    std::filesystem::path config_path = argv[1];
+    std::filesystem::path engine_path = argv[2];
+
+    // Instantitate an XFeat object.
+    XFeat xfeat(config_path.string(), engine_path.string());
     cv::Mat img1 = cv::imread("Image1.png");
     cv::Mat img2 = cv::imread("Image2.png");
     cv::Mat output;
