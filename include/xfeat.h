@@ -65,7 +65,7 @@ class XFeat
     XFeat(const std::string config_path, const std::string engine_path);
 
     /**
-    * @brief Function to perform inferencing on the TensorRT engine. It preprocesses the data, performs inference, postprocesses the outputs and returns them.
+    * @brief Function to perform sparse keypoint detection by inferencing on the TensorRT engine. It preprocesses the data, performs inference, postprocesses the outputs and returns them.
     * @param img The input image to perform inference on.
     * @param keypoints Detected keypoints.
     * @param descriptors Descriptors of the keypoints.
@@ -74,13 +74,22 @@ class XFeat
     void detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch::Tensor& descriptors, torch::Tensor& scores);
 
     /**
+    * @brief Function to perform dense keypoint detection by inferencing on the TensorRT engine. It preprocesses the data, performs inference, postprocesses the outputs and returns them.
+    * @param img The input image to perform inference on.
+    * @param keypoints Detected keypoints.
+    * @param descriptors Descriptors of the keypoints.
+   */
+    void detectDense(const cv::Mat& img, torch::Tensor& keypoints, torch::Tensor& descriptors);
+
+    /**
     * @brief Helper function to match the keypoints from two images based on descriptors cosine similarity.
     * @param feats1 Descriptors from image 1.
     * @param feats2 Descriptors from image 2.
-    * @param matches Indices of matched points as a vector of cv::DMatches.
+    * @param idx1 Indices of matched points from Image 1.
+    * @param idx2 Indices of matched points from Image 2.
     * @param min_cossim Ratio of similarity between the cosines.
    */
-    void match(const torch::Tensor& feats1, const torch::Tensor& feats2, std::vector<cv::DMatch>& matches, double min_cossim = 0.82);
+    void match(const torch::Tensor& feats1, const torch::Tensor& feats2, torch::Tensor& idx1, torch::Tensor& idx2, double min_cossim = 0.82);
 
     private:
 
@@ -123,6 +132,14 @@ class XFeat
    */
     torch::Tensor get_kpts_heatmap(const torch::Tensor& kpts, float softmax_temp = 1.0);
 
+    /**
+    * @brief Helper function to create a grid of (x,y) coordinates.
+    * @param h Height of grid.
+    * @param w Width of grid.
+    * @param xy Resulting grid.
+   */
+    void create_xy(int h, int w, torch::Tensor& xy);
+
 
     //TensorRT Engine variables
     std::unique_ptr<IRuntime, DestroyObjects> runtime;
@@ -164,6 +181,7 @@ class XFeat
 
     //SoftMax temperature
     float softmaxTemp;
+
 };
 
 #endif //XFEAT_H

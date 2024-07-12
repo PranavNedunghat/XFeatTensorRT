@@ -1,5 +1,5 @@
 # Main params for XFeat
-max_keypoints: 4096
+max_keypoints: 16392
 image_width: 640
 image_height: 480
 engine_file: "xfeat.engine"

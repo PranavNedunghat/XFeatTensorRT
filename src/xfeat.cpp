@@ -57,6 +57,7 @@ XFeat::XFeat(const std::string config_path, const std::string engine_path):dev(t
     //Sparse interpolator for post-processing outputs
     _nearest = InterpolateSparse2D("nearest");
 	bilinear = InterpolateSparse2D("bilinear");
+
 }
 
 void XFeat::detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch::Tensor& descriptors, torch::Tensor& scores)
@@ -116,10 +117,58 @@ void XFeat::detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch
     auto scores_valid = scores_.index({valid});
     auto descriptors_valid = feats.index({valid});
 
+    // Synchronize all operations before moving the results back to the CPU
+    torch::cuda::synchronize();
+
     // Transfer the valid points to the CPU
     keypoints = keypoints_valid.cpu();
     scores = scores_valid.cpu();
     descriptors = descriptors_valid.cpu();
+}
+
+void XFeat::detectDense(const cv::Mat& img, torch::Tensor& keypoints, torch::Tensor& descriptors)
+{
+    // Preprocess input image and convert to Tensor on GPU
+    torch::Tensor input_Data = preprocessImages(img);
+
+    // Variables to store output from TensorRT engine
+    featsData = torch::empty({batchSize,64,outputH,outputW}, torch::device(dev).dtype(torch::kFloat32));
+    keypointsData = torch::empty({batchSize, 65, outputH, outputW}, torch::device(dev).dtype(torch::kFloat32));
+    heatmapData = torch::empty({batchSize, 1, outputH, outputW}, torch::device(dev).dtype(torch::kFloat32));
+
+    // Create buffer to store input and outputs of TensorRT engine
+    void* buffers[4]; 
+    buffers[inputIndex] = input_Data.data_ptr();
+    buffers[featsIndex] = featsData.data_ptr();
+    buffers[keypointsIndex] = keypointsData.data_ptr();
+    buffers[heatmapIndex] = heatmapData.data_ptr();
+
+    // Run inference on TensorRT engine
+    context->executeV2(buffers);
+
+    featsData = featsData.permute({0, 2, 3, 1}).reshape({batchSize, -1, 64});
+    heatmapData = heatmapData.permute({0, 2, 3, 1}).reshape({batchSize, -1});
+
+    // Create a grid of (x, y) coordinates
+    torch::Tensor xy;
+    create_xy(outputH, outputW, xy);
+    xy = xy.mul(8).expand({batchSize, -1, -1});
+
+    auto [heatmap_topk, top_k_indices] = torch::topk(heatmapData, std::min(int(heatmapData.size(1)), top_k), -1);
+
+    auto feats = torch::gather(featsData, 1, top_k_indices.unsqueeze(-1).expand({-1, -1, 64}));
+    auto mkpts = torch::gather(xy, 1, top_k_indices.unsqueeze(-1).expand({-1, -1, 2}));
+    mkpts = mkpts * torch::tensor({rw, rh}, dev).view({1, -1});
+    
+    feats = feats.squeeze(0);
+    mkpts = mkpts.squeeze(0);
+
+    // Synchronize operations before transferring results to the CPU
+    torch::cuda::synchronize();
+
+    // Return the results to the CPU
+    keypoints = mkpts.cpu();
+    descriptors = feats.cpu();
 }
 
 torch::Tensor XFeat::preprocessImages(const cv::Mat& img)
@@ -244,7 +293,7 @@ torch::Tensor XFeat::get_kpts_heatmap(const torch::Tensor& kpts, float softmax_t
     return heatmap;
 }
 
-void XFeat::match(const torch::Tensor& feats1, const torch::Tensor& feats2, std::vector<cv::DMatch>& matches, double min_cossim) 
+void XFeat::match(const torch::Tensor& feats1, const torch::Tensor& feats2, torch::Tensor& idx1, torch::Tensor& idx2, double min_cossim) 
 {
     auto cossim = torch::matmul(feats1, feats2.t());
     auto cossim_t = torch::matmul(feats2, feats1.t());
@@ -252,33 +301,25 @@ void XFeat::match(const torch::Tensor& feats1, const torch::Tensor& feats2, std:
     auto match12 = std::get<1>(cossim.max(1));
     auto match21 = std::get<1>(cossim_t.max(1));
 
-    auto idx0 = torch::arange(match12.size(0), cossim.options().device(match12.device()));
-    auto mutual = match21.index({match12}) == idx0;
+    idx1 = torch::arange(match12.size(0), cossim.options().device(match12.device()));
+    auto mutual = match21.index({match12}) == idx1;
 
     if (min_cossim > 0) {
         cossim = std::get<0>(cossim.max(1));
         auto good = cossim > min_cossim;
-        idx0 = idx0.index({mutual & good});
-        auto idx1 = match12.index({mutual & good});
-        for (int i = 0; i < idx0.size(0); ++i) 
-        {
-            int queryIdx = idx0[i].item<int>();
-            int trainIdx = idx1[i].item<int>();
-            float distance = cossim[queryIdx].item<float>();
-            matches.emplace_back(queryIdx, trainIdx, distance);
-        }
+        idx1 = idx1.index({mutual & good});
+        idx2 = match12.index({mutual & good});
     } 
     else 
     {
-        idx0 = idx0.index({mutual});
-        auto idx1 = match12.index({mutual});
-
-        for (int i = 0; i < idx0.size(0); ++i) 
-        {
-            int queryIdx = idx0[i].item<int>();
-            int trainIdx = idx1[i].item<int>();
-            float distance = cossim[queryIdx].item<float>();
-            matches.emplace_back(queryIdx, trainIdx, distance);
-        }
+        idx1 = idx1.index({mutual});
+        idx2 = match12.index({mutual});
     }
+}
+
+void XFeat::create_xy(int h, int w, torch::Tensor& xy) 
+{
+    auto y = torch::arange(h, dev).view({-1, 1});
+    auto x = torch::arange(w, dev).view({1, -1});
+    xy = torch::cat({x.repeat({h, 1}).unsqueeze(-1), y.repeat({1, w}).unsqueeze(-1)}, -1).view({-1, 2});
 }

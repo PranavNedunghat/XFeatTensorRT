@@ -24,7 +24,19 @@ static void TensorToKeypoints(const torch::Tensor& keypoints_tensor, std::vector
     }
 }
 
+//Convert Query Tensor and Train Tensor to cv::DMatch type
+static void TensorsToDMatch(const torch::Tensor& idx1, const torch::Tensor& idx2, std::vector<cv::DMatch>& matches)
+{
+    for (int i = 0; i < idx1.size(0); ++i) 
+        {
+            int queryIdx = idx1[i].item<int>();
+            int trainIdx = idx2[i].item<int>();
+            float distance = 1.0;
+            matches.emplace_back(queryIdx, trainIdx, distance);
+        }
+}
 
+// Function to visualize the keypoints and matching, as well as display some benchmarking results.
 static void VisualizeMatching(const cv::Mat &image0, const std::vector<cv::KeyPoint> &keypoints0, const cv::Mat &image1,
                               const std::vector<cv::KeyPoint> &keypoints1,
                               const std::vector<cv::DMatch> &_matches, cv::Mat &output_image, double cost_time = -1) {

@@ -42,9 +42,11 @@ add_library(xfeat_lib SHARED
 # Link directories
 link_directories(${CUDA_LIBRARY_DIRS} ${TENSORRT_LIBRARY_DIR})
 
-# Add executable
+# Add executables
 add_executable(xample src/xample.cpp)
+add_executable(xampleDense src/xampleDense.cpp)
 
 # Link libraries
 target_link_libraries(xfeat_lib ${CUDA_LIBRARIES} ${OpenCV_LIBS} ${TORCH_LIBRARIES} nvinfer nvonnxparser nvinfer_plugin yaml-cpp)
 target_link_libraries(xample xfeat_lib ${TORCH_LIBRARIES})
+target_link_libraries(xampleDense xfeat_lib ${TORCH_LIBRARIES})

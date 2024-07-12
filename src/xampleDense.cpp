@@ -24,14 +24,14 @@ int main(int argc, char* argv[])
     cv::Mat output;
     std::vector<cv::DMatch> matches;
 
-    torch::Tensor feats1, keypoints1, heatmap1, idx1;
-    torch::Tensor feats2, keypoints2, heatmap2, idx2;
+    torch::Tensor feats1, keypoints1, idx1;
+    torch::Tensor feats2, keypoints2, idx2;
 
     // Warm-up runs
     std::cout<<"Performing warm-up runs"<<std::endl;
     for (int i = 0; i < 10; ++i) {
-        xfeat.detectAndCompute(img1, keypoints1, feats1, heatmap1);
-        xfeat.detectAndCompute(img2, keypoints2, feats2, heatmap2);
+        xfeat.detectDense(img1, keypoints1, feats1);
+        xfeat.detectDense(img2, keypoints2, feats2);
     }
 
     // Synchronize to ensure all operations are complete before starting the timer
@@ -41,8 +41,11 @@ int main(int argc, char* argv[])
     std::cout<<"Beginning inference benchmark"<<std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
-    xfeat.detectAndCompute(img1, keypoints1, feats1, heatmap1);
-    xfeat.detectAndCompute(img2, keypoints2, feats2, heatmap2);
+    xfeat.detectDense(img1, keypoints1, feats1);
+    xfeat.detectDense(img2, keypoints2, feats2);
+
+    std::cout<<keypoints1.sizes()<<std::endl;
+    std::cout<<feats1.sizes()<<std::endl;
 
     // Synchronize again before stopping the timer
     //torch::cuda::synchronize();
