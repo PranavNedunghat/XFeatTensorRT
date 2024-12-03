@@ -9,7 +9,7 @@ int main(int argc, char* argv[])
 {
     // Parse arguments
     if (argc != 3) {
-    std::cerr << "Usage: " << argv[0] << " <config.yaml> <engine_file>" << std::endl;
+    std::cerr << "Enter the path to the <config.yaml> and <engine_file>" << std::endl;
     return 1;
     }
 
@@ -22,7 +22,8 @@ int main(int argc, char* argv[])
     cv::Mat img1 = cv::imread("Image1.png");
     cv::Mat img2 = cv::imread("Image2.png");
     cv::Mat output;
-    std::vector<cv::DMatch> matches;
+    std::vector<cv::DMatch> matches, inliers;
+    std::vector<cv::KeyPoint> k1,k2;
 
     torch::Tensor feats1, keypoints1, heatmap1, idx1;
     torch::Tensor feats2, keypoints2, heatmap2, idx2;
@@ -44,24 +45,21 @@ int main(int argc, char* argv[])
     xfeat.detectAndCompute(img1, keypoints1, feats1, heatmap1);
     xfeat.detectAndCompute(img2, keypoints2, feats2, heatmap2);
 
-    // Synchronize again before stopping the timer
-    //torch::cuda::synchronize();
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout<<"Inference benchmark done, beginning feature matching"<<std::endl;
+    std::cout<<"Inference benchmark done, beginning feature matching and outlier rejection"<<std::endl;
     xfeat.match(feats1,feats2,idx1, idx2);
     TensorsToDMatch(idx1,idx2,matches);
-    std::cout<<"Matching done, generating output image and saving"<<std::endl;
-
-    std::vector<cv::KeyPoint> k1,k2;
-
     TensorToKeypoints(keypoints1, k1);
     TensorToKeypoints(keypoints2, k2);
+    reject_outliers(k1,k2,matches,inliers);
+
+    std::cout<<"Matching done, generating output image and saving it in the build directory"<<std::endl;
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
-    VisualizeMatching(img1, k1, img2, k2, matches, output, duration.count());
+    VisualizeMatching(img1, k1, img2, k2, inliers, output, duration.count());
 
-    cv::imwrite("Output.png",output);
+    cv::imwrite("SparseOutput.png",output);
     std::cout<<"All operations successful!"<<std::endl;
 
     return 0;

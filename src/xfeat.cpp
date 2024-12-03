@@ -33,9 +33,6 @@ XFeat::XFeat(const std::string config_path, const std::string engine_path):dev(t
         throw std::runtime_error("Failed to create execution context");
     }
 
-    batchSize = 1;
-    inputC = 1;
-
     // Image height and width after image preprocessing to make it compatible with the TensorRT engine.
     _H = (inputH/32)*32;
     _W = (inputW/32)*32;
@@ -65,6 +62,8 @@ void XFeat::detectAndCompute(const cv::Mat& img, torch::Tensor& keypoints, torch
 
     // Preprocess input image and convert to Tensor on GPU
     torch::Tensor input_Data = preprocessImages(img);
+
+    batchSize = input_Data.size(0);
 
     // Variables to store output from TensorRT engine
     featsData = torch::empty({batchSize,64,outputH,outputW}, torch::device(dev).dtype(torch::kFloat32));
@@ -130,6 +129,8 @@ void XFeat::detectDense(const cv::Mat& img, torch::Tensor& keypoints, torch::Ten
 {
     // Preprocess input image and convert to Tensor on GPU
     torch::Tensor input_Data = preprocessImages(img);
+
+    batchSize = input_Data.size(0);
 
     // Variables to store output from TensorRT engine
     featsData = torch::empty({batchSize,64,outputH,outputW}, torch::device(dev).dtype(torch::kFloat32));
