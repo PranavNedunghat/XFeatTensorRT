@@ -20,4 +20,4 @@ This is a simple C++ implementation of XFeat: Accelerated Features deep learning
 2) **[Homepage](https://www.verlab.dcc.ufmg.br/descriptors/xfeat_cvpr24/)**
 3) **[CVPR Paper](https://openaccess.thecvf.com/content/CVPR2024/html/Potje_XFeat_Accelerated_Features_for_Lightweight_Image_Matching_CVPR_2024_paper.html)**
 
-Thanks also to **[IamShubhamGupto](https://github.com/verlab/accelerated_features/pull/4)** for his excellent work on this project. 
+Thanks also to **[IamShubhamGupto](https://github.com/verlab/accelerated_features/pull/4)** for his excellent work on exporting the model to onnx and the Python TensorRT implementation of XFeat. 
