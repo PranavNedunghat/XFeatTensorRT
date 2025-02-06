@@ -36,18 +36,50 @@ static void TensorsToDMatch(const torch::Tensor& idx1, const torch::Tensor& idx2
         }
 }
 
+//Reject outliers from the matching function using RANSAC
+static void reject_outliers(const std::vector<cv::KeyPoint>& keypoints1, const std::vector<cv::KeyPoint>& keypoints2, const std::vector<cv::DMatch>& _matches, std::vector<cv::DMatch>& _inliers)
+{
+    std::vector<cv::Point2f> points1, points2;
+    for (const auto& match : _matches) {
+        points1.push_back(keypoints1[match.queryIdx].pt);
+        points2.push_back(keypoints2[match.trainIdx].pt);
+    }
+
+    // Use RANSAC to find the fundamental matrix and filter out outliers
+    std::vector<uchar> inliersMask(_matches.size());
+    cv::Mat fundamentalMatrix = cv::findFundamentalMat(points1, points2, inliersMask, 3, 0.99, cv::FM_RANSAC);
+
+    // Filter matches to retain only inliers
+    for (size_t i = 0; i < _matches.size(); ++i) {
+        if (inliersMask[i]) {
+            _inliers.push_back(_matches[i]);
+        }
+    }
+}
+
 // Function to visualize the keypoints and matching, as well as display some benchmarking results.
-static void VisualizeMatching(const cv::Mat &image0, const std::vector<cv::KeyPoint> &keypoints0, const cv::Mat &image1,
-                              const std::vector<cv::KeyPoint> &keypoints1,
-                              const std::vector<cv::DMatch> &_matches, cv::Mat &output_image, double cost_time = -1) {
-    if(image0.size != image1.size) return;
-    cv::drawMatches(image0, keypoints0, image1, keypoints1, _matches, output_image, cv::Scalar(0, 255, 0), cv::Scalar(0, 0, 255));
-    double sc = std::min(image0.rows / 640., 2.0);
+static void VisualizeMatching(const cv::Mat &image1, const std::vector<cv::KeyPoint> &keypoints1, const cv::Mat &image2, const std::vector<cv::KeyPoint> &keypoints2, const std::vector<cv::DMatch> &_matches, cv::Mat &output_image, double cost_time = -1) 
+{
+    cv::Mat img1 = image1;
+    cv::Mat img2 = image2;
+
+    if (image1.rows != 480 || image1.cols != 640) 
+    {
+    std::cout<<"Warning: Image 1 is not of the resolution expected by the visualization function, which is (640x480). Resizing image."<<std::endl;
+    cv::resize(img1, img1, cv::Size(640, 480));
+    }
+    if (image2.rows != 480 || image2.cols != 640) 
+    {
+    std::cout<<"Warning: Image 2 is not of the resolution expected by the visualization function, which is (640x480). Resizing image."<<std::endl;
+    cv::resize(img2, img2, cv::Size(640, 480));
+    }
+    cv::drawMatches(img1, keypoints1, img2, keypoints2, _matches, output_image, cv::Scalar(0, 255, 0), cv::Scalar(0, 0, 255));
+    double sc = std::min(img1.rows / 640., 2.0);
     int ht = int(30 * sc);
     std::string title_str = "XFeat TensorRT";
     cv::putText(output_image, title_str, cv::Point(int(8*sc), ht), cv::FONT_HERSHEY_DUPLEX,1.0*sc, cv::Scalar(0, 0, 0), 2, cv::LINE_AA);
     cv::putText(output_image, title_str, cv::Point(int(8*sc), ht), cv::FONT_HERSHEY_DUPLEX,1.0*sc, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
-    std::string feature_points_str = "Keypoints: " + std::to_string(keypoints0.size()) + ":" + std::to_string(keypoints1.size());
+    std::string feature_points_str = "Keypoints: " + std::to_string(keypoints1.size()) + ":" + std::to_string(keypoints2.size());
     cv::putText(output_image, feature_points_str, cv::Point(int(8*sc), ht*2), cv::FONT_HERSHEY_DUPLEX,1.0*sc, cv::Scalar(0, 0, 0), 2, cv::LINE_AA);
     cv::putText(output_image, feature_points_str, cv::Point(int(8*sc), ht*2), cv::FONT_HERSHEY_DUPLEX,1.0*sc, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
     std::string match_points_str = "Matches: " + std::to_string(_matches.size());

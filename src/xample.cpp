@@ -8,19 +8,21 @@
 int main(int argc, char* argv[])
 {
     // Parse arguments
-    if (argc != 3) {
-    std::cerr << "Enter the path to the <config.yaml> and <engine_file>" << std::endl;
+    if (argc != 5) {
+    std::cerr << "Enter the path to the <config.yaml>, <engine_file>, <image_1>, <image_2>" << std::endl;
     return 1;
     }
 
     // Get the paths from the command line arguments
     std::filesystem::path config_path = argv[1];
     std::filesystem::path engine_path = argv[2];
+    std::filesystem::path image1_path = argv[3];
+    std::filesystem::path image2_path = argv[4];
 
     // Instantitate an XFeat object.
     XFeat xfeat(config_path.string(), engine_path.string());
-    cv::Mat img1 = cv::imread("Image1.png");
-    cv::Mat img2 = cv::imread("Image2.png");
+    cv::Mat img1 = cv::imread(image1_path);
+    cv::Mat img2 = cv::imread(image2_path);
     cv::Mat output;
     std::vector<cv::DMatch> matches, inliers;
     std::vector<cv::KeyPoint> k1,k2;
@@ -53,13 +55,13 @@ int main(int argc, char* argv[])
     TensorToKeypoints(keypoints2, k2);
     reject_outliers(k1,k2,matches,inliers);
 
-    std::cout<<"Matching done, generating output image and saving it in the build directory"<<std::endl;
+    std::cout<<"Matching done, generating output image and saving it in the example_imgs directory"<<std::endl;
 
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
     VisualizeMatching(img1, k1, img2, k2, inliers, output, duration.count());
 
-    cv::imwrite("SparseOutput.png",output);
+    cv::imwrite("../example_imgs/SparseOutput.png",output);
     std::cout<<"All operations successful!"<<std::endl;
 
     return 0;

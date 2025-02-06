@@ -2,7 +2,6 @@
 max_keypoints: 16392
 image_width: 640
 image_height: 480
-engine_file: "xfeat.engine"
 
 #Non-Max Suppression params
 threshold: 0.05

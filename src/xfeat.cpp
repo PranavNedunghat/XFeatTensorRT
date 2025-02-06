@@ -14,7 +14,7 @@ XFeat::XFeat(const std::string config_path, const std::string engine_path):dev(t
     YAML::Node config = YAML::LoadFile(config_path);
 
     // XFeat params
-    std::string engineFilePath = engine_path + config["engine_file"].as<std::string>();
+    std::string engineFilePath = engine_path;
     inputH = config["image_height"].as<int>();
     inputW = config["image_width"].as<int>();
     top_k = config["max_keypoints"].as<int>();

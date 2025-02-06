@@ -20,14 +20,20 @@ find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 #Find LibTorch
-find_package(Torch REQUIRED PATHS ${PROJECT_SOURCE_DIR}/libtorch)
+find_package(Torch REQUIRED PATHS /usr/local/lib/python3.10/dist-packages/torch/share/cmake/Torch)
 message(STATUS "Found Torch include is ${TORCH_INCLUDE_DIRS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 # TensorRT paths 
-set(TENSORRT_ROOT ~/Downloads/TensorRT-8.6.1.6)
-set(TENSORRT_INCLUDE_DIR ${TENSORRT_ROOT}/include)
-set(TENSORRT_LIBRARY_DIR ${TENSORRT_ROOT}/lib)
+list(APPEND PLUGINS "nvinfer")
+list(APPEND PLUGINS "nvonnxparser")
+list(APPEND PLUGINS "nvparsers")
+list(APPEND PLUGINS "nvinfer_plugin")
+
+foreach(libName ${PLUGINS})
+    find_library(${libName}_lib NAMES ${libName} "/usr" PATH_SUFFIXES lib)
+    list(APPEND PLUGIN_LIBS "${${libName}_lib}")
+endforeach()
 
 # Include directories
 include_directories(include/ ${CUDA_INCLUDE_DIRS} ${TENSORRT_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS} ${TORCH_INCLUDE_DIRS})
