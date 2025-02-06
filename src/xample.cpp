@@ -61,7 +61,9 @@ int main(int argc, char* argv[])
 
     VisualizeMatching(img1, k1, img2, k2, inliers, output, duration.count());
 
-    cv::imwrite("../example_imgs/SparseOutput.png",output);
+    std::filesystem::path output_path = image1_path.parent_path() / "SparseOutput.png";
+
+    cv::imwrite(output_path,output);
     std::cout<<"All operations successful!"<<std::endl;
 
     return 0;
