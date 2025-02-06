@@ -53,7 +53,7 @@ The outputs will be located in the directory where image 1 is located as SparseO
 
 ## Notes about the performance and outputs
 1) Please make sure that the CUDA and TensorRT versions match the requirements. For some reason, when the engine file is created using an older TensorRT version, the model will not perform at all and you are likely to run into errors.
-2) The above outputs were obtained on a Jetson Orin NX 16GB running JetPack 6.0, with CUDA 12.2.140 and TensorRT 8.6.2.3 installed.    
+2) The above outputs were obtained on an Nvidia Jetson Orin NX 16GB running JetPack 6.0, with CUDA 12.2.140 and TensorRT 8.6.2.3 installed.    
 
 # Acknowledgements
 This is a simple C++ implementation of XFeat: Accelerated Features deep learning model for lightweight image matching by VeRLab. If you find this useful please do support their incredible work:
