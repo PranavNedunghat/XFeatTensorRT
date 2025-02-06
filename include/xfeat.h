@@ -89,7 +89,7 @@ class XFeat
     * @param idx2 Indices of matched points from Image 2.
     * @param min_cossim Ratio of similarity between the cosines.
    */
-    void match(const torch::Tensor& feats1, const torch::Tensor& feats2, torch::Tensor& idx1, torch::Tensor& idx2, double min_cossim = 0.83);
+    void match(const torch::Tensor& feats1, const torch::Tensor& feats2, torch::Tensor& idx1, torch::Tensor& idx2, double min_cossim = 0.82);
 
     private:
 
